@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Browser & Device Capability Explorer</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#f5f7fa;color:#17202a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{min-height:100vh}
+header{background:#fff;border-bottom:1px solid #dfe4ea;padding:18px 20px;position:sticky;top:0;z-index:10}
+.header-inner,main,footer{max-width:1250px;margin:auto}
+h1{margin:0;font-size:23px}
+.subtitle{color:#65717d;margin-top:5px;font-size:13px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+button{border:1px solid #ccd3da;background:#fff;color:#17202a;border-radius:8px;padding:9px 13px;cursor:pointer;font-size:13px}
+button:hover{background:#f1f4f7}
+button.primary{background:#17202a;color:#fff;border-color:#17202a}
+button.danger{border-color:#d9a3a3;color:#9b2727}
+main{padding:20px}
+.warning{background:#fff8e6;border:1px solid #f0d58a;padding:14px;border-radius:10px;margin-bottom:20px;font-size:13px;line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:15px}
+.card{background:#fff;border:1px solid #dfe4ea;border-radius:12px;overflow:hidden}
+.card-header{padding:13px 15px;border-bottom:1px solid #e5e9ed;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card-title{font-weight:700;font-size:15px}
+.status{font-size:11px;border-radius:20px;padding:4px 8px;white-space:nowrap}
+.status.ok{background:#e8f7ed;color:#18743a}
+.status.warn{background:#fff3d9;color:#8a5b00}
+.status.blocked{background:#fdeaea;color:#a32626}
+.status.info{background:#eaf2ff;color:#245ca8}
+.card-body{padding:14px 15px}
+.data{display:grid;grid-template-columns:minmax(125px,40%) 1fr;border-bottom:1px solid #edf0f3;padding:7px 0;gap:10px}
+.data:last-child{border-bottom:0}
+.key{color:#66727e;font-size:12px;overflow-wrap:anywhere}
+.value{font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;white-space:pre-wrap}
+.full{grid-column:1/-1}
+pre{margin:0;background:#f7f8fa;border:1px solid #e4e7ea;padding:10px;border-radius:7px;max-height:420px;overflow:auto;font-size:11px;line-height:1.5}
+.permissions{display:flex;flex-wrap:wrap;gap:7px}
+.permission{padding:7px 9px;border:1px solid #d9dee3;border-radius:7px;font-size:11px;background:#fafbfc}
+.confidence{display:inline-block;font-size:10px;border-radius:12px;padding:2px 6px;margin-left:5px}
+.high{background:#e8f7ed;color:#18743a}
+.medium{background:#fff3d9;color:#8a5b00}
+.experimental{background:#fdeaea;color:#a32626}
+.unknown{background:#edf0f3;color:#56616c}
+.test-panel{background:#fafbfc;border:1px solid #e3e7eb;border-radius:9px;padding:12px;margin-bottom:10px}
+.test-panel:last-child{margin-bottom:0}
+.test-title{font-weight:700;font-size:13px;margin-bottom:6px}
+.test-result{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;word-break:break-word}
+.test-note{font-size:11px;color:#68747f;margin-top:5px;line-height:1.4}
+canvas{max-width:100%}
+footer{padding:10px 20px 30px;color:#697681;font-size:12px;line-height:1.6}
+@media(max-width:600px){
+header{padding:15px}
+main{padding:12px}
+.grid{grid-template-columns:1fr}
+.full{grid-column:auto}
+h1{font-size:20px}
+.data{grid-template-columns:1fr;gap:3px}
+}
+</style>
+</head>
+<body>
+<header>
+<div class="header-inner">
+<h1>Browser & Device Capability Explorer</h1>
+<div class="subtitle">Educational laboratory for exploring what a normal webpage can discover about the browser, device, display, hardware and web platform.</div>
+<div class="toolbar">
+<button class="primary" onclick="runAll()">Run All Tests</button>
+<button onclick="runDisplayLab()">Refresh Display Lab</button>
+<button onclick="exportData()">Export JSON</button>
+<button onclick="copyReport()">Copy Report</button>
+<button class="danger" onclick="clearLocalTest()">Clear Local Test Data</button>
+</div>
+</div>
+</header>
+
+<main>
+<div class="warning">
+<strong>Security boundary:</strong> This application only uses browser APIs available to the webpage. It does not silently access passwords, browser history, other tabs, arbitrary private files, SMS, contacts, IMEI or other protected operating-system data. Permission-gated APIs are tested only where explicitly requested by a user action.
+</div>
+
+<div class="grid">
+
+<div class="card"><div class="card-header"><span class="card-title">Browser</span><span id="browser-status" class="status info">Testing</span></div><div class="card-body" id="browser"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Operating System</span><span class="status info">Detected</span></div><div class="card-body" id="os"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Screen & Display</span><span class="status ok">Available</span></div><div class="card-body" id="screen"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Display Laboratory</span><span class="status warn">Mixed reliability</span></div><div class="card-body" id="displayLab"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Hardware Hints</span><span class="status warn">Estimated</span></div><div class="card-body" id="hardware"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Network</span><span class="status info">Available</span></div><div class="card-body" id="network"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Browser Features</span><span class="status info">Tested</span></div><div class="card-body" id="features"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Storage</span><span class="status info">Tested</span></div><div class="card-body" id="storage"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">WebGL / GPU</span><span id="gpu-status" class="status info">Testing</span></div><div class="card-body" id="gpu"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Canvas Characteristics</span><span class="status warn">Fingerprinting</span></div><div class="card-body" id="canvas"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Permissions</span><span class="status info">No permissions requested</span></div><div class="card-body" id="permissions"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Media Devices</span><span id="media-status" class="status info">Testing</span></div><div class="card-body" id="media"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Battery</span><span id="battery-status" class="status info">Testing</span></div><div class="card-body" id="battery"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Sensors & Device APIs</span><span class="status info">Capability only</span></div><div class="card-body" id="sensors"></div></div>
+<div class="card"><div class="card-header"><span class="card-title">Security Context</span><span class="status info">Tested</span></div><div class="card-body" id="security"></div></div>
+
+<div class="card full">
+<div class="card-header"><span class="card-title">Display Reliability Guide</span><span class="status info">Interpretation</span></div>
+<div class="card-body">
+<div class="test-panel"><div class="test-title">High reliability</div><div class="test-result">Screen size, viewport, orientation, color depth, touch capability and browser-reported DPR.</div><div class="test-note">These values are reliable as browser-reported values. They should not automatically be interpreted as raw physical hardware specifications.</div></div>
+<div class="test-panel"><div class="test-title">Capability-level reliability</div><div class="test-result">HDR, P3/wide-gamut and related media-query results.</div><div class="test-note">These indicate what the user agent/output environment reports as supported. They do not prove that a capability is currently active.</div></div>
+<div class="test-panel"><div class="test-title">Experimental</div><div class="test-result">Refresh-rate estimation using requestAnimationFrame.</div><div class="test-note">The result represents observed browser rendering callback timing. It is not a direct hardware refresh-rate sensor.</div></div>
+<div class="test-panel"><div class="test-title">Not exposed directly</div><div class="test-result">Exact physical screen inches, exact physical DPI, panel manufacturer, panel technology and guaranteed native physical resolution.</div><div class="test-note">Do not derive these from CSS pixels and DPR as if they were guaranteed hardware specifications.</div></div>
+</div>
+</div>
+
+<div class="card full">
+<div class="card-header"><span class="card-title">Complete Raw Report</span><span class="status info">JSON</span></div>
+<div class="card-body"><pre id="raw"></pre></div>
+</div>
+
+</div>
+</main>
+
+<footer>
+Browser APIs differ across Chrome, Firefox, Safari, Android browsers, iOS browsers, WebViews and desktop browsers. A missing value may mean unsupported, restricted, privacy-reduced or simply unavailable in the current context.
+</footer>
+
+<script>
+const report={};
+
+function add(container,key,value){
+const div=document.createElement("div");div.className="data";
+const k=document.createElement("div");k.className="key";k.textContent=key;
+const v=document.createElement("div");v.className="value";v.textContent=value;
+div.appendChild(k);div.appendChild(v);container.appendChild(div);
+}
+function clear(id){document.getElementById(id).innerHTML=""}
+function safe(fn,fallback="Unavailable"){try{const r=fn();return r===undefined?fallback:r}catch(e){return fallback}}
+async function safeAsync(fn){try{return await fn()}catch(e){return "Unavailable"}}
+function media(q){try{return matchMedia(q).matches}catch(e){return false}}
+function reliability(label,type){
+return label+" ["+type+"]"
+}
+
+function detectBrowser(){
+const ua=navigator.userAgent;
+let browser="Unknown";
+if(/Edg\//i.test(ua))browser="Microsoft Edge";
+else if(/OPR\//i.test(ua))browser="Opera";
+else if(/Chrome\//i.test(ua))browser="Google Chrome / Chromium";
+else if(/Firefox\//i.test(ua))browser="Mozilla Firefox";
+else if(/Safari\//i.test(ua)&&!/Chrome/i.test(ua))browser="Safari";
+const data={
+browser,userAgent:ua,appName:navigator.appName,appCodeName:navigator.appCodeName,appVersion:navigator.appVersion,
+product:navigator.product,productSub:navigator.productSub,vendor:navigator.vendor,vendorSub:navigator.vendorSub,
+platform:navigator.platform,language:navigator.language,languages:navigator.languages,cookieEnabled:navigator.cookieEnabled,
+doNotTrack:navigator.doNotTrack,online:navigator.onLine,webdriver:navigator.webdriver
+};
+report.browser=data;const el=document.getElementById("browser");
+Object.entries(data).forEach(([k,v])=>add(el,k,Array.isArray(v)?v.join(", "):v));
+const s=document.getElementById("browser-status");s.textContent="Available";s.className="status ok";
+}
+
+function detectOS(){
+const ua=navigator.userAgent;let os="Unknown";
+if(/Android/i.test(ua))os="Android";
+else if(/iPhone|iPad|iPod/i.test(ua))os="iOS/iPadOS";
+else if(/Windows NT/i.test(ua))os="Windows";
+else if(/Mac OS X/i.test(ua))os="macOS";
+else if(/Linux/i.test(ua))os="Linux";
+const uaData=navigator.userAgentData;
+const data={
+estimatedOS:os,platform:navigator.platform,userAgentDataPlatform:uaData?.platform||"Not exposed",
+mobile:uaData?.mobile??"Not exposed",architecture:uaData?.architecture||"Not exposed",
+bitness:uaData?.bitness||"Not exposed",model:uaData?.model||"Not exposed"
+};
+report.os=data;const el=document.getElementById("os");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+function detectScreen(){
+const data={
+screenWidthCSSpx:screen.width,screenHeightCSSpx:screen.height,
+availableWidthCSSpx:screen.availWidth,availableHeightCSSpx:screen.availHeight,
+viewportWidthCSSpx:innerWidth,viewportHeightCSSpx:innerHeight,
+outerWindowWidthCSSpx:outerWidth,outerWindowHeightCSSpx:outerHeight,
+devicePixelRatio:devicePixelRatio,colorDepthBits:screen.colorDepth,pixelDepthBits:screen.pixelDepth,
+orientation:safe(()=>screen.orientation.type),orientationAngle:safe(()=>screen.orientation.angle),
+fullscreenAvailable:!!document.fullscreenEnabled,
+touchPoints:navigator.maxTouchPoints,touchSupported:"ontouchstart" in window
+};
+report.screen=data;const el=document.getElementById("screen");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+async function refreshRateTest(samples=90){
+return new Promise(resolve=>{
+let last=null,count=0,deltas=[];
+function frame(t){
+if(last!==null){const d=t-last;if(d>0&&d<100)deltas.push(d)}
+last=t;count++;
+if(count<=samples)requestAnimationFrame(frame);
+else{
+if(!deltas.length)return resolve({estimatedHz:"Unavailable",medianFrameMs:"Unavailable",samples:0});
+const sorted=[...deltas].sort((a,b)=>a-b);
+const median=sorted[Math.floor(sorted.length/2)];
+resolve({estimatedHz:Math.round(1000/median),medianFrameMs:Number(median.toFixed(2)),samples:deltas.length});
+}}
+requestAnimationFrame(frame);
+});
+}
+
+async function runDisplayLab(){
+const el=document.getElementById("displayLab");el.innerHTML="";
+const results={};
+
+function panel(title,result,note,type){
+const p=document.createElement("div");p.className="test-panel";
+const t=document.createElement("div");t.className="test-title";t.textContent=title;
+const r=document.createElement("div");r.className="test-result";r.textContent=result;
+const n=document.createElement("div");n.className="test-note";n.textContent=note;
+p.append(t,r,n);el.appendChild(p);
+}
+
+results.cssPixelScreen=`${screen.width} × ${screen.height} CSS px`;
+panel("CSS screen dimensions",results.cssPixelScreen,"Reliable as browser-reported CSS dimensions; not guaranteed physical panel resolution.","high");
+
+results.viewport=`${innerWidth} × ${innerHeight} CSS px`;
+panel("Webpage viewport",results.viewport,"High reliability for the current webpage viewport. Browser UI and dynamic mobile browser chrome can change it.","high");
+
+results.dpr=devicePixelRatio;
+panel("Device Pixel Ratio",results.dpr,"High reliability as the browser-reported ratio. Page zoom can affect window.devicePixelRatio.","high");
+
+results.colorDepth=screen.colorDepth;
+panel("Color depth",results.colorDepth+" bits","Browser-reported display color depth. Do not treat it as a laboratory measurement of panel electronics.","high");
+
+results.pixelDepth=screen.pixelDepth;
+panel("Pixel depth",results.pixelDepth+" bits","Browser-reported value.","high");
+
+results.orientation=safe(()=>screen.orientation.type);
+results.angle=safe(()=>screen.orientation.angle);
+panel("Orientation",`${results.orientation}, ${results.angle}°`,"High reliability for the current browser-reported orientation.","high");
+
+results.srgb=media("(color-gamut: srgb)");
+results.p3=media("(color-gamut: p3)");
+results.rec2020=media("(color-gamut: rec2020)");
+panel("Color gamut",`sRGB: ${results.srgb} | P3: ${results.p3} | Rec.2020: ${results.rec2020}`,"Capability result. It does not provide a measured colorimeter profile.","medium");
+
+results.dynamicStandard=media("(dynamic-range: standard)");
+results.dynamicHigh=media("(dynamic-range: high)");
+panel("Dynamic range",`Standard: ${results.dynamicStandard} | High: ${results.dynamicHigh}`,"High dynamic range capability does not mean HDR is currently active.","medium");
+
+results.darkMode=media("(prefers-color-scheme: dark)");
+results.reducedMotion=media("(prefers-reduced-motion: reduce)");
+panel("User display preferences",`Dark mode: ${results.darkMode} | Reduced motion: ${results.reducedMotion}`,"High reliability for the preferences exposed to the page.","high");
+
+results.hover=media("(hover: hover)");
+results.coarsePointer=media("(pointer: coarse)");
+results.finePointer=media("(pointer: fine)");
+panel("Pointer environment",`Hover: ${results.hover} | Coarse pointer: ${results.coarsePointer} | Fine pointer: ${results.finePointer}`,"CSS media-query result describing the primary input environment.","high");
+
+results.landscape=media("(orientation: landscape)");
+results.portrait=media("(orientation: portrait)");
+panel("CSS orientation",`Portrait: ${results.portrait} | Landscape: ${results.landscape}`,"High reliability for the current CSS orientation media query.","high");
+
+results.screenWakeLock="wakeLock" in navigator;
+results.screenCapture=!!navigator.mediaDevices?.getDisplayMedia;
+results.screenDetails="getScreenDetails" in window;
+panel("Advanced display APIs",`Wake Lock: ${results.screenWakeLock} | Screen Capture: ${results.screenCapture} | Multi-screen details API: ${results.screenDetails}`,"Capability detection only. Advanced APIs may require HTTPS, permissions or user activation.","medium");
+
+const refresh=await refreshRateTest();
+results.refreshRate=refresh;
+panel("Rendering refresh-rate experiment",`${refresh.estimatedHz} Hz estimated | ${refresh.medianFrameMs} ms median callback interval`,"Experimental only. requestAnimationFrame normally runs near the browser's repaint cadence, but it is not a direct hardware refresh-rate sensor.","experimental");
+
+results.physicalInches="Not directly exposed";
+results.physicalDPI="Not directly exposed";
+results.panelModel="Not directly exposed";
+results.panelTechnology="Not directly exposed";
+panel("Physical screen size","Not directly exposed","There is no standard webpage API that reliably returns the exact physical diagonal in inches.","unknown");
+panel("Physical DPI","Not directly exposed","Do not calculate physical DPI from CSS pixels and DPR as if it were guaranteed hardware data.","unknown");
+panel("Panel manufacturer/model","Not directly exposed","Normal webpage JavaScript cannot reliably identify the exact display panel.","unknown");
+panel("Panel technology","Not directly exposed","AMOLED, OLED, IPS, LTPO and similar physical panel details are not standard webpage properties.","unknown");
+
+report.displayLab=results;
+renderRaw();
+}
+
+function detectHardware(){
+const data={
+logicalCPU:navigator.hardwareConcurrency||"Unavailable",deviceMemoryGB:navigator.deviceMemory||"Unavailable",
+maxTouchPoints:navigator.maxTouchPoints,touchSupport:"ontouchstart"in window,pdfViewer:navigator.pdfViewerEnabled,
+virtualKeyboard:"virtualKeyboard"in navigator,bluetooth:"bluetooth"in navigator,usb:"usb"in navigator,
+serial:"serial"in navigator,hid:"hid"in navigator,midi:"requestMIDIAccess"in navigator
+};
+report.hardware=data;const el=document.getElementById("hardware");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+function detectNetwork(){
+const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+const data={
+online:navigator.onLine,connectionAPI:!!c,effectiveType:c?.effectiveType||"Unavailable",
+downlinkMbps:c?.downlink||"Unavailable",downlinkMaxMbps:c?.downlinkMax||"Unavailable",
+rttMs:c?.rtt||"Unavailable",saveData:c?.saveData??"Unavailable",type:c?.type||"Unavailable"
+};
+report.network=data;const el=document.getElementById("network");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+function detectFeatures(){
+const tests={
+WebAssembly:typeof WebAssembly!=="undefined",WebGL:!!document.createElement("canvas").getContext("webgl"),
+WebGL2:!!document.createElement("canvas").getContext("webgl2"),WebGPU:"gpu"in navigator,
+WebRTC:"RTCPeerConnection"in window,WebSocket:"WebSocket"in window,ServiceWorker:"serviceWorker"in navigator,
+IndexedDB:"indexedDB"in window,LocalStorage:"localStorage"in window,SessionStorage:"sessionStorage"in window,
+CacheAPI:"caches"in window,Notifications:"Notification"in window,Geolocation:"geolocation"in navigator,
+Clipboard:"clipboard"in navigator,ShareAPI:"share"in navigator,MediaDevices:"mediaDevices"in navigator,
+Gamepad:"getGamepads"in navigator,SpeechRecognition:"SpeechRecognition"in window||"webkitSpeechRecognition"in window,
+SpeechSynthesis:"speechSynthesis"in window,Vibrate:"vibrate"in navigator,FileSystemAccess:"showOpenFilePicker"in window,
+FileSystemDirectoryAccess:"showDirectoryPicker"in window,ScreenOrientation:"orientation"in screen,
+BroadcastChannel:"BroadcastChannel"in window,WebWorkers:"Worker"in window,OffscreenCanvas:"OffscreenCanvas"in window
+};
+report.features=tests;const el=document.getElementById("features");
+Object.entries(tests).forEach(([k,v])=>add(el,k,v?"Supported":"Not supported"));
+}
+
+async function detectStorage(){
+const data={localStorage:safe(()=>localStorage.length+" stored keys"),sessionStorage:safe(()=>sessionStorage.length+" stored keys"),indexedDB:"indexedDB"in window};
+if(navigator.storage){
+data.persisted=await safeAsync(()=>navigator.storage.persisted());
+const e=await safeAsync(()=>navigator.storage.estimate());
+if(e&&typeof e==="object"){
+data.quotaBytes=e.quota;data.usageBytes=e.usage;
+data.usagePercent=e.quota?((e.usage/e.quota)*100).toFixed(2)+"%":"Unavailable";
+}}
+report.storage=data;const el=document.getElementById("storage");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+function detectGPU(){
+const canvas=document.createElement("canvas");
+const gl=canvas.getContext("webgl")||canvas.getContext("experimental-webgl");
+if(!gl){
+report.gpu={supported:false};document.getElementById("gpu").innerHTML="<div class='value'>WebGL unavailable.</div>";
+const s=document.getElementById("gpu-status");s.textContent="Unavailable";s.className="status blocked";return;
+}
+const debug=gl.getExtension("WEBGL_debug_renderer_info");
+const data={
+vendor:debug?gl.getParameter(debug.UNMASKED_VENDOR_WEBGL):"Hidden by browser",
+renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):"Hidden by browser",
+version:gl.getParameter(gl.VERSION),shadingLanguageVersion:gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+maxTextureSize:gl.getParameter(gl.MAX_TEXTURE_SIZE),maxCubeMapTextureSize:gl.getParameter(gl.MAX_CUBE_MAP_TEXTURE_SIZE),
+maxViewportDimensions:gl.getParameter(gl.MAX_VIEWPORT_DIMS),extensions:gl.getSupportedExtensions()
+};
+report.gpu=data;const el=document.getElementById("gpu");
+Object.entries(data).forEach(([k,v])=>add(el,k,Array.isArray(v)?v.join(", "):v));
+const s=document.getElementById("gpu-status");s.textContent="Available";s.className="status ok";
+}
+
+function detectCanvas(){
+const canvas=document.createElement("canvas");canvas.width=600;canvas.height=150;const ctx=canvas.getContext("2d");
+ctx.textBaseline="top";ctx.font="16px Arial";ctx.fillStyle="#123456";ctx.fillRect(10,10,100,40);
+ctx.fillStyle="#abcdef";ctx.fillText("Browser capability test 123",10,70);ctx.globalCompositeOperation="multiply";
+ctx.fillStyle="#ff00aa";ctx.beginPath();ctx.arc(180,70,30,0,Math.PI*2);ctx.fill();
+const dataURL=canvas.toDataURL();let hash=0;
+for(let i=0;i<dataURL.length;i++){hash=((hash<<5)-hash)+dataURL.charCodeAt(i);hash|=0}
+const data={canvasSupported:true,generatedHash:Math.abs(hash).toString(16),dataURLLength:dataURL.length,note:"A rendering characteristic; not a unique device ID."};
+report.canvas=data;const el=document.getElementById("canvas");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+async function detectPermissions(){
+const names=["camera","microphone","geolocation","notifications","clipboard-read","clipboard-write","midi","persistent-storage"];
+const el=document.getElementById("permissions");report.permissions={};
+if(!navigator.permissions){add(el,"Permissions API","Not supported");return}
+for(const name of names){
+try{const r=await navigator.permissions.query({name});report.permissions[name]=r.state;
+const item=document.createElement("div");item.className="permission";item.textContent=name+": "+r.state;el.appendChild(item)}
+catch(e){report.permissions[name]="Not queryable";const item=document.createElement("div");item.className="permission";item.textContent=name+": Not queryable";el.appendChild(item)}
+}
+}
+
+async function detectMedia(){
+const el=document.getElementById("media");
+if(!navigator.mediaDevices){
+el.innerHTML="<div class='value'>MediaDevices API unavailable.</div>";
+const s=document.getElementById("media-status");s.textContent="Unavailable";s.className="status blocked";return;
+}
+try{
+const devices=await navigator.mediaDevices.enumerateDevices();
+const data={totalDevices:devices.length,audioInput:devices.filter(x=>x.kind==="audioinput").length,audioOutput:devices.filter(x=>x.kind==="audiooutput").length,videoInput:devices.filter(x=>x.kind==="videoinput").length,labelsExposed:devices.some(x=>x.label)};
+report.media=data;Object.entries(data).forEach(([k,v])=>add(el,k,v));add(el,"Important","Camera/microphone access itself was NOT requested.");
+const s=document.getElementById("media-status");s.textContent="Available";s.className="status ok";
+}catch(e){report.media={error:e.message};add(el,"Error",e.message);const s=document.getElementById("media-status");s.textContent="Restricted";s.className="status warn"}
+}
+
+async function detectBattery(){
+const el=document.getElementById("battery");
+if(!navigator.getBattery){el.innerHTML="<div class='value'>Battery Status API unavailable or restricted.</div>";const s=document.getElementById("battery-status");s.textContent="Unavailable";s.className="status blocked";return}
+try{
+const b=await navigator.getBattery();
+const data={charging:b.charging,levelPercent:Math.round(b.level*100)+"%",chargingTime:b.chargingTime,dischargingTime:b.dischargingTime};
+report.battery=data;Object.entries(data).forEach(([k,v])=>add(el,k,v));const s=document.getElementById("battery-status");s.textContent="Available";s.className="status ok";
+}catch(e){add(el,"Error",e.message);const s=document.getElementById("battery-status");s.textContent="Restricted";s.className="status warn"}
+}
+
+function detectSensors(){
+const tests={
+DeviceOrientation:"DeviceOrientationEvent"in window,
+DeviceMotion:"DeviceMotionEvent"in window,
+Accelerometer:"Accelerometer"in window,
+Gyroscope:"Gyroscope"in window,
+LinearAccelerationSensor:"LinearAccelerationSensor"in window,
+AbsoluteOrientationSensor:"AbsoluteOrientationSensor"in window,
+AmbientLightSensor:"AmbientLightSensor"in window,
+ProximitySensor:"ProximitySensor"in window,
+Magnetometer:"Magnetometer"in window
+};
+report.sensors=tests;const el=document.getElementById("sensors");
+Object.entries(tests).forEach(([k,v])=>add(el,k,v?"API available":"Unavailable"));
+}
+
+function detectSecurity(){
+const data={
+secureContext:window.isSecureContext,
+protocol:location.protocol,
+origin:location.origin,
+localhost:/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname),
+crossOriginIsolated:window.crossOriginIsolated,
+referrer:document.referrer||"None",
+cookieEnabled:navigator.cookieEnabled
+};
+report.security=data;const el=document.getElementById("security");
+Object.entries(data).forEach(([k,v])=>add(el,k,v));
+}
+
+function renderRaw(){document.getElementById("raw").textContent=JSON.stringify(report,null,2)}
+
+async function runAll(){
+Object.keys(report).forEach(k=>delete report[k]);
+report.meta={timestamp:new Date().toISOString(),url:location.href,secureContext:window.isSecureContext,protocol:location.protocol,referrer:document.referrer||"None"};
+detectBrowser();detectOS();detectScreen();detectHardware();detectNetwork();detectFeatures();
+await detectStorage();detectGPU();detectCanvas();await detectPermissions();await detectMedia();await detectBattery();detectSensors();detectSecurity();
+await runDisplayLab();renderRaw();
+}
+
+function exportData(){
+const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
+const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="browser-device-report.json";a.click();URL.revokeObjectURL(url);
+}
+
+async function copyReport(){
+try{await navigator.clipboard.writeText(JSON.stringify(report,null,2));alert("Report copied.")}catch(e){alert("Clipboard access is unavailable.")}
+}
+
+function clearLocalTest(){
+try{localStorage.clear();sessionStorage.clear();alert("Local/session storage for this site was cleared.")}catch(e){alert("Storage could not be cleared.")}
+}
+
+window.addEventListener("resize",()=>{if(report.screen){detectScreen();runDisplayLab()}});
+window.addEventListener("online",()=>{if(report.network)detectNetwork()});
+window.addEventListener("offline",()=>{if(report.network)detectNetwork()});
+
+runAll();
+</script>
+</body>
+</html>
